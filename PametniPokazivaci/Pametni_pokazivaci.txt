@@ -1,0 +1,121 @@
+#include <iostream>
+#include <memory>
+using namespace std;
+char* Alociraj(const char* novi) {
+	int vel = strlen(novi) + 1;
+	char* temp = new char[vel];
+	strcpy_s(temp, vel, novi);
+	return temp;
+}
+class Student {
+	unique_ptr<char[]> ImeiPrezime;
+	shared_ptr<int[]>_ocjene;
+	shared_ptr<int>_ocjena;
+	int _trenutno = 0;
+
+public:
+	Student(const char* naziv, int ocjena) :ImeiPrezime(Alociraj(naziv))
+	{
+
+		_ocjena = make_shared<int>(ocjena);
+	}
+	Student(const Student& original) :ImeiPrezime(Alociraj(original.ImeiPrezime.get()))
+	{
+		_trenutno = original._trenutno;
+		_ocjene = original._ocjene;
+		_ocjena = original._ocjena;
+
+
+	}
+	void AddOcjena(int ocjena) {
+		shared_ptr<int[]>temp(new int[_trenutno + 1], default_delete<int[]>());
+		for (int i = 0; i < _trenutno; i++)
+		{
+			temp.get()[i] = _ocjene.get()[i];
+		}
+		temp.get()[_trenutno++] = ocjena;
+		_ocjene.reset();
+		_ocjene = temp;
+	}
+	void AddOcjena(int ocjena)
+	{
+		shared_ptr<int[]>temp(new int[_trenutno + 1], default_delete<int[]>());
+		for (int i = 0; i < _trenutno; i++)
+		{
+			temp.get()[i] = _ocjene.get()[i];
+		}
+		temp.get()[_trenutno++] = ocjena;
+		_ocjene.reset();
+		_ocjene = temp;
+	}
+	Student& operator=(const Student& original) {
+		ImeiPrezime.reset();
+
+		int vel = strlen(original.ImeiPrezime.get()) + 1;
+		ImeiPrezime = make_unique<char[]>(vel);
+		strcpy_s(ImeiPrezime.get(), vel, original.ImeiPrezime.get());
+		_trenutno = original._trenutno;
+		_ocjene.reset();
+		_ocjene = original._ocjene;
+		_ocjena = original._ocjena;
+
+		return *this;
+	}
+	Student& operator=(const Student& s)
+	{
+		ImeiPrezime.reset();
+		int vel = strlen(s.ImeiPrezime.get()) + 1;
+		ImeiPrezime = make_unique<char[]>(vel);
+		strcpy_s(ImeiPrezime.get(), vel, s.ImeiPrezime.get());
+		_trenutno = s._trenutno;
+		_ocjene.reset();
+		_ocjena = s._ocjena;
+		_ocjene = s._ocjene;
+	}
+	Student(Student&& original)noexcept :ImeiPrezime(original.ImeiPrezime.release()) {
+		_ocjene = original._ocjene;
+		_ocjena = original._ocjena;
+		original._ocjena.reset();
+		original._ocjene.reset();
+	}
+	~Student()
+	{
+		cout << "Ovo je destruktor" << endl;
+	}
+	void Info() {
+		cout << ImeiPrezime;
+		for (int i = 0; i < _trenutno; i++)
+		{
+			cout << _ocjene.get()[i];
+		}
+		cout << *_ocjena;
+	}
+};
+int main() {
+	Student Tajib("Tajib", 10);
+	{
+
+		Student Amir("Amir", 10);
+
+		Amir.AddOcjena(1);
+		Amir.AddOcjena(1);
+		Amir.AddOcjena(1);
+		Amir.AddOcjena(1);
+		Amir.AddOcjena(1);
+		Tajib = Amir;
+		Tajib.Info();
+
+		Amir.Info();
+
+
+
+
+	}
+	Tajib.Info();
+
+
+
+
+
+	return 0;
+}

@@ -1,0 +1,551 @@
+#include<iostream>
+#include<ctime>
+#include<iomanip>
+#include<regex>
+#include<mutex>
+#include<exception>
+#include<vector>
+#include<sstream>
+#include<string>
+#include<thread>
+using namespace std;
+bool ProvjeriFormatTelefona(string telefon)
+{
+	string pravilo = "(\\()\\d{3}(\\))\\d{3}(\\-)\\d{3}";
+	if (regex_match(telefon, regex(pravilo)))
+		return true;
+	return false;
+}
+class Datum {
+	int* _dan, * _mjesec, * _godina;
+public:
+	Datum(int dan = 1, int mjesec = 1, int godina = 2000) {
+		_dan = new int(dan);
+		_mjesec = new int(mjesec);
+		_godina = new int(godina);
+	}
+	Datum(const Datum& d)
+	{
+		_dan = new int(*d._dan);
+		_mjesec = new int(*d._mjesec);
+		_godina = new int(*d._godina);
+	}
+	Datum& operator=(const Datum& d)
+	{
+		if (this != &d)
+		{
+			*_dan = *d._dan;
+			*_mjesec = *d._mjesec;
+			*_godina = *d._godina;
+		}
+		return *this;
+	}
+	~Datum() {
+		delete _dan; _dan = nullptr;
+		delete _mjesec; _mjesec = nullptr;
+		delete _godina; _godina = nullptr;
+	}
+	bool operator==(const Datum& d)
+	{
+		return (*_dan + *_mjesec * 30 + *_godina * 365) == (*d._dan + *d._mjesec * 30 + *d._godina * 365);
+	}
+	bool operator<(const Datum& d)
+	{
+		return (*_dan + *_mjesec * 30 + *_godina * 365) < (*d._dan + *d._mjesec * 30 + *d._godina * 365);
+	}
+	bool operator>(const Datum& d)
+	{
+		return (*_dan + *_mjesec * 30 + *_godina * 365) > (*d._dan + *d._mjesec * 30 + *d._godina * 365);
+	}
+	friend ostream& operator<< (ostream& COUT, const Datum& obj) {
+		COUT << *obj._dan << " " << *obj._mjesec << " " << *obj._godina;
+		return COUT;
+	}
+};
+
+class Izuzetak :public exception {
+	Datum _datum;//KORISTITE DANASNJI DATUM
+	string _funkcija;//FUNKCIJA U KOJOJ JE NASTAO IZUZETAK
+	int _linija;//LINIJA CODE-A U KOJOJ JE NASTAO IZUZETAK
+public:
+	Izuzetak(string funkcija, int linija, string poruka) :exception(poruka.c_str())
+	{
+		_funkcija = funkcija;
+		_linija = linija;
+		time_t trenutno = time(0);
+		tm lokalno;
+		localtime_s(&lokalno, &trenutno);
+		Datum d(lokalno.tm_mday, lokalno.tm_mon+1, lokalno.tm_year+1900);
+		_datum = d;
+	}
+	friend ostream& operator<<(ostream& cout, const Izuzetak& i)
+	{
+		cout << " Greska -> " << i.what() << endl;
+		cout << " Funckija -> " << i._funkcija << endl;
+		cout << " Linija -> " << i._linija << endl;
+		cout << " Vrijeme -> " << i._datum << endl;
+		return cout;
+	}
+};
+template<class T1, class T2, int max>
+class Kolekcija {
+	T1 _elementi1[max];
+	T2 _elementi2[max];
+	int* _trenutno;
+public:
+	Kolekcija()
+	{
+		_trenutno = new int(0);
+	}
+	Kolekcija(const Kolekcija& k)
+	{
+		_trenutno = new int(*k._trenutno);
+		for (int i = 0; i <*_trenutno; i++)
+		{
+			_elementi1[i] = k._elementi1[i];
+			_elementi2[i] = k._elementi2[i];
+		}
+	}
+	Kolekcija& operator=(const Kolekcija& k)
+	{
+		if (this != &k)
+		{
+			delete _trenutno;
+			_trenutno = new int(*k._trenutno);
+			for (int i = 0; i < *_trenutno; i++)
+			{
+				_elementi1[i] = k._elementi1[i];
+				_elementi2[i] = k._elementi2[i];
+			}
+		}
+		return *this;
+	}
+	~Kolekcija()
+	{
+		delete _trenutno;
+		_trenutno = nullptr;
+	}
+	void AddElement(T1 el1, T2 el2)
+	{
+		if (*_trenutno == max)
+		{
+			throw Izuzetak(__FUNCTION__, __LINE__, "Nema vise prostora");
+		}
+		_elementi1[*_trenutno] = el1;
+		_elementi2[*_trenutno] = el2;
+		*_trenutno = *_trenutno + 1;
+	}
+	int GetMax()
+	{
+		return max;
+	}
+	T1 GetElement1(int lokacija)const
+	{
+		return _elementi1[lokacija];
+	}
+	T2 GetElement2(int lokacija)const
+	{
+		return _elementi2[lokacija];
+	}
+	T1& operator[](int lokacija)
+	{
+		return _elementi1[lokacija];
+	}
+	int GetTrenutno()const
+	{
+		return *_trenutno;
+	}
+	friend ostream& operator<<(ostream& cout, const Kolekcija& k)
+	{
+		for (int i = 0; i < k.GetTrenutno(); i++)
+		{
+			cout << k.GetElement1(i) << " " << k.GetElement2(i) << endl;
+		}
+		return cout;
+	}
+};
+
+enum enumKursevi { HtmlCSSJavaScript, SoftwareEngeneeringFundamentals, MasteringSQL, WindowsSecurity };
+class Kurs {
+	enumKursevi _kurs;
+	Datum _pocetak;
+	Datum _kraj;
+	char* _imePredavaca;
+public:
+	Kurs()
+	{
+
+	}
+	Kurs(enumKursevi k, const char* imePredavaca, Datum pocetak, Datum kraj)
+	{
+		int velicina = strlen(imePredavaca) + 1;
+		char* temp = new char[velicina];
+		strcpy_s(temp, velicina, imePredavaca);
+		_imePredavaca = temp;
+		_pocetak = pocetak;
+		_kraj = kraj;
+		_kurs = k;
+	}
+	Kurs(const Kurs& k)
+	{
+		int velicina = strlen(k._imePredavaca) + 1;
+		char* temp = new char[velicina];
+		strcpy_s(temp, velicina, k._imePredavaca);
+		_imePredavaca = temp;
+		_pocetak = k._pocetak;
+		_kraj = k._kraj;
+		_kurs = k._kurs;
+	}
+	Kurs& operator=(const Kurs& k)
+	{
+		if (this != &k)
+		{
+			delete[]_imePredavaca;
+			int velicina = strlen(k._imePredavaca) + 1;
+			char* temp = new char[velicina];
+			strcpy_s(temp, velicina, k._imePredavaca);
+			_imePredavaca = temp;
+			_pocetak = k._pocetak;
+			_kraj = k._kraj;
+			_kurs = k._kurs;
+		}
+		return *this;
+	}
+	~Kurs()
+	{
+		delete[]_imePredavaca;
+		_imePredavaca = nullptr;
+	}
+	enumKursevi getKurs()const
+	{
+		return _kurs;
+	}
+	Datum getPocetak()const
+	{
+		return _pocetak;
+	}
+	Datum getKraj()const
+	{
+		return _kraj;
+	}
+	char* getIme()const
+	{
+		return _imePredavaca;
+	}
+	bool operator==(const Kurs& k)
+	{
+		return strcmp(_imePredavaca, k._imePredavaca) == 0 && _pocetak == k._pocetak && _kraj == k._kraj && _kurs == k._kurs;
+	}
+	friend ostream& operator<<(ostream& cout, const Kurs& k)
+	{
+		cout << " Ime predavaca -> " << k._imePredavaca << endl;
+		cout << " Pocetak -> " << k._pocetak << endl;
+		cout << " Kraj -> " << k._kraj << endl;
+		cout << " Kurs -> " << k._kurs << endl;
+		return cout;
+	}
+};
+class Polaznik {
+	static int ID;
+	const int _polaznikID;
+	//SVAKOM NOVOM POLAZNIKU AUTOMATSKI DODIJELITI NOVI ID (AUTOINCREMENT) POCEVSI OD BROJA 1
+	char* _imePrezime;
+	string _kontaktTelefon; //BROJ TELEFONA TREBA BITI U FORMATU (06X)XXX-XXX 
+	Kolekcija<Kurs*, int, 10> _uspjesnoOkoncaniKursevi;
+	//INT PREDSTAVLJA OSTVARENI PROCENAT NA ISPITU, A JEDAN POLAZNIK MOZE POLOZITI NAJVISE 10 KURSEVA
+public:
+	Polaznik(const char* imePrezime, string telefon) :_polaznikID(ID++) {
+		int size = strlen(imePrezime) + 1;
+		_imePrezime = new char[size];
+		strcpy_s(_imePrezime, size, imePrezime);
+		_kontaktTelefon = telefon;
+	}
+	Polaznik(const Polaznik& p):_polaznikID(p._polaznikID)
+	{
+		int size = strlen(p._imePrezime) + 1;
+		_imePrezime = new char[size];
+		strcpy_s(_imePrezime, size, p._imePrezime);
+		_kontaktTelefon = p._kontaktTelefon;
+		for (int i = 0; i < p._uspjesnoOkoncaniKursevi.GetTrenutno(); i++)
+		{
+			_uspjesnoOkoncaniKursevi.AddElement(new Kurs(*p._uspjesnoOkoncaniKursevi.GetElement1(i)), p._uspjesnoOkoncaniKursevi.GetElement2(i));
+
+		}
+	}
+	Polaznik& operator=(const Polaznik& p)
+	{
+		if (this != &p)
+		{
+			delete[] _imePrezime; _imePrezime = nullptr;
+			for (size_t i = 0; i < _uspjesnoOkoncaniKursevi.GetTrenutno(); i++)
+			{
+				delete _uspjesnoOkoncaniKursevi[i];
+				_uspjesnoOkoncaniKursevi[i] = nullptr;
+			}
+			int size = strlen(p._imePrezime) + 1;
+			_imePrezime = new char[size];
+			strcpy_s(_imePrezime, size, p._imePrezime);
+			_kontaktTelefon = p._kontaktTelefon;
+
+			for (int i = 0; i < p._uspjesnoOkoncaniKursevi.GetTrenutno(); i++)
+			{
+				_uspjesnoOkoncaniKursevi.AddElement(new Kurs(*p._uspjesnoOkoncaniKursevi.GetElement1(i)), p._uspjesnoOkoncaniKursevi.GetElement2(i));
+
+			}
+		}
+		return *this;
+	}
+	~Polaznik() {
+		delete[] _imePrezime; _imePrezime = nullptr;
+		for (size_t i = 0; i < _uspjesnoOkoncaniKursevi.GetTrenutno(); i++)
+		{
+			delete _uspjesnoOkoncaniKursevi[i];
+			_uspjesnoOkoncaniKursevi[i] = nullptr;
+		}
+	}
+	bool operator==(const Polaznik& p)
+	{
+		return strcmp(_imePrezime, p._imePrezime) == 0;
+	}
+	Kolekcija<Kurs*, int, 10> getUspjesnoOkoncaniKursevi()
+	{
+		return _uspjesnoOkoncaniKursevi;
+	}
+	int getID()
+	{
+		return _polaznikID;
+	}
+	friend ostream& operator<<(ostream& cout, const Polaznik& p)
+	{
+		cout << " Ime i prezime -> " << p._imePrezime << endl;
+		cout << " ID polaznika -> " << p._polaznikID << endl;
+		cout << " Broj telefona -> " << p._kontaktTelefon << endl;
+		cout << p._uspjesnoOkoncaniKursevi << endl;
+		return cout;
+	}
+};
+int Polaznik::ID = 1;
+class SkillsCentar {
+	string _nazivCentra;
+	vector<Kurs> _kursevi;//KURSEVI KOJE NUDI ODREDJENI CENTAR
+	Kolekcija<Kurs, Polaznik*, 150> _aplikanti;
+public:
+	SkillsCentar(string naziv) { _nazivCentra = naziv; }
+	SkillsCentar(const SkillsCentar& obj) :_kursevi(obj._kursevi), _aplikanti(obj._aplikanti) {
+		_nazivCentra = obj._nazivCentra;
+	}
+	bool ProvjeriKoliziju(Kurs&k)
+	{
+		for (int i = 0; i < _kursevi.size(); i++)
+		{
+			if (k.getPocetak() > _kursevi[i].getPocetak() && k.getKraj() < _kursevi[i].getKraj()
+				|| k.getPocetak() < _kursevi[i].getPocetak() && k.getKraj() > _kursevi[i].getPocetak()
+				|| k.getPocetak() < _kursevi[i].getPocetak() && k.getKraj() > _kursevi[i].getKraj()
+				|| k.getPocetak() < _kursevi[i].getKraj() && k.getKraj() > _kursevi[i].getKraj()
+				|| k==_kursevi[i])
+				return false;
+		}
+		return true;
+	}
+	void AddAplikaciju(Kurs&k,Polaznik&p)
+	{
+		for (int i = 0; i < _aplikanti.GetTrenutno(); i++)
+		{
+			if (k == _aplikanti.GetElement1(i) && p == *_aplikanti.GetElement2(i))
+				throw Izuzetak(__FUNCTION__, __LINE__, "Vec postoji aplikacija za kurs");
+		}
+		bool postojiKurs = false;
+		for (int i = 0; i < _kursevi.size(); i++)
+		{
+			if (k == _kursevi[i])
+			{
+				_aplikanti.AddElement(k, &p);
+				return;
+			}
+		}
+		throw Izuzetak(__FUNCTION__, __LINE__, "Ne postoji kurs u centru");
+	}
+	void AddKurs(Kurs&k)
+	{
+		_kursevi.push_back(k);
+	}
+	void DodajUspjesnoOkoncanKurs(int ID, Kurs& k, int procenat)
+	{
+		bool postojiAplikacija = false;
+		for (int i = 0; i < _aplikanti.GetTrenutno(); i++)
+		{
+			if (_aplikanti.GetElement2(i)->getID() == ID && _aplikanti.GetElement1(i) == k && procenat > 55)
+			{
+				_aplikanti.GetElement2(i)->getUspjesnoOkoncaniKursevi().AddElement(new Kurs(k), procenat);
+				return;
+			}
+		}
+		throw Izuzetak(__FUNCTION__, __LINE__, "Ne postoji aplikacija za kurs");
+	}
+	vector<Polaznik> GetPolazniciByPredavac(const char* imePredavaca, enumKursevi k)
+	{
+		vector<Polaznik>temp;
+		for (int i = 0; i < _aplikanti.GetTrenutno(); i++)
+		{
+			for (int j = 0; j < _aplikanti.GetElement2(i)->getUspjesnoOkoncaniKursevi().GetTrenutno(); j++)
+			{
+				if (k == _aplikanti.GetElement2(i)->getUspjesnoOkoncaniKursevi().GetElement1(j)->getKurs()
+					&& strcmp(imePredavaca, _aplikanti.GetElement2(i)->getUspjesnoOkoncaniKursevi().GetElement1(j)->getIme()) == 0)
+				{
+					temp.push_back(*_aplikanti.GetElement2(i));
+				}
+			}
+		}
+		return temp;
+	}
+	bool RemoveKurs(Kurs& k)
+	{
+		for (int i = 0; i < _aplikanti.GetTrenutno(); i++)
+		{
+			if (_aplikanti.GetElement1(i) == k)
+				return false;
+		}
+		for (vector<Kurs>::iterator i = _kursevi.begin(); i != _kursevi.end(); i++)
+		{
+			if (*i == k)
+			{
+				_kursevi.erase(i);
+				return true;
+			}
+		}
+		return false;
+	}
+	friend ostream& operator<<(ostream& cout, const SkillsCentar& sc)
+	{
+		cout << "Naziv centra -> " << sc._nazivCentra << endl;
+		cout << " Kursevi -> " << endl;
+		for (int i = 0; i < sc._kursevi.size(); i++)
+		{
+			cout << sc._kursevi[i] << endl;
+		}
+		return cout;
+	}
+};
+const char* crt = "\n---------------------------------------\n";
+void main()
+{
+	/****************************************************************************
+	1. SVE KLASE TREBAJU POSJEDOVATI ADEKVATAN DESTRUKTOR
+	2. NAMJERNO IZOSTAVLJANJE KOMPLETNIH I/ILI POJEDINIH DIJELOVA DESTRUKTORA KOJI UZROKUJU RUNTIME ERROR ĆE BITI OZNACENO KAO "RE"
+	3. SPAŠAVAJTE PROJEKAT KAKO BI SE SPRIJEČILO GUBLJENJE URAĐENOG ZADATKA
+	4. PROGRAMSKI CODE SE TAKOĐER NALAZI U FAJLU CODE.TXT
+	5. NAZIVI FUNKCIJA, TE BROJ I TIP PARAMETARA MORAJU BITI IDENTIČNI ONIMA KOJI SU KORIŠTENI U TESTNOM CODE-U, OSIM U SLUCAJU DA POSTOJI ADEKVATAN RAZLOG ZA NJIHOVU MODIFIKACIJU. OSTALE, POMOĆNE FUNKCIJE MOŽETE IMENOVATI I DODAVATI PO ŽELJI.
+	6. IZUZETAK BACITE U FUNKCIJAMA U KOJIMA JE TO NAZNAČENO.
+	****************************************************************************/
+
+#pragma region TestiranjeDatuma
+	Datum danas(26, 11, 2015);
+	Datum sutra(danas);
+	Datum prekosutra;
+	prekosutra = danas;
+	cout << danas << endl << sutra << endl << prekosutra << crt;
+#pragma endregion
+#pragma region TestiranjeKolekcije
+	Kolekcija<int, int, 10> kolekcija1;
+	try
+	{
+		for (size_t i = 0; i < kolekcija1.GetMax(); i++)
+			kolekcija1.AddElement(i, i + 2);
+		//FUNKCIJA TREBA BACITI IZUZETAK U SLUCAJ DA NEMA VISE PROSTORA ZA DODAVANJE NOVIH ELEMENATA
+		cout << kolekcija1.GetElement1(0) << " " << kolekcija1.GetElement2(0) << endl;
+		//cout << kolekcija1.GetElement1(20) << " " << kolekcija1.GetElement2(20) << endl;
+		//FUNKCIJA TREBA DA BACI IZUZETAK UKOLIKO ELEMENT NA ZAHTIJEVANOJ LOKACIJI NE POSTOJI
+	}
+	catch (Izuzetak & err)
+	{
+		cout << "Greska -> " << err << endl;
+	}
+
+	cout << kolekcija1 << endl;
+	Kolekcija<int, int, 10> kolekcija2;
+	kolekcija2 = kolekcija1;
+	cout << kolekcija2 << crt;
+	if (kolekcija1.GetTrenutno() == kolekcija2.GetTrenutno())
+		cout << "ISTI BROJ ELEMENATA" << endl;
+	Kolekcija<int, int, 10> kolekcija3(kolekcija2);
+	cout << kolekcija3 << crt;
+#pragma endregion
+#pragma region TestiranjeKursa
+	Kurs sef(SoftwareEngeneeringFundamentals, "Jasmin Azemovic", Datum(28, 1, 2016), Datum(15, 2, 2016));
+	cout << sef << endl;
+	Kurs msql(MasteringSQL, "Adel Handzic", Datum(28, 2, 2016), Datum(15, 3, 2016));
+	sef = msql;
+	if (sef == msql)//KURSEVI SU ISTI AKO POSJEDUJU IDENTICNE VRIJEDNOSTI SVIH ATRIBUTA
+		cout << "ISTI SU KURSEVI" << endl;
+	Kurs msql2(msql);
+	cout << msql2 << endl;
+#pragma endregion
+#pragma region TestiranjePolaznika
+	string telefon1 = "(061)111-111";
+	string telefon2 = "(061)111222";
+	string telefon3 = "(061)111-333";
+
+	if (!ProvjeriFormatTelefona(telefon1))
+		cout << "Broj " << telefon1 << " nije validan" << endl;
+	if (!ProvjeriFormatTelefona(telefon2))
+		cout << "Broj " << telefon2 << " nije validan" << endl;
+	if (!ProvjeriFormatTelefona(telefon3))
+		cout << "Broj " << telefon3 << " nije validan" << endl;
+
+
+	Polaznik denis("Denis Music", telefon1);
+	Polaznik denis2("Denis2 Music2", telefon3);
+
+#pragma endregion
+
+#pragma region TestiranjeCentra
+	try {
+		SkillsCentar mostar("Skills Center Mostar");
+		if (mostar.ProvjeriKoliziju(sef))
+		{
+			cout << "dobar";
+			//JEDAN KURS NE SMIJE POCETI DOK DRUGI TRAJE TJ. VRIJEME ODRZAVANJA KURSA SE NE SMIJE POKLAPATI
+			mostar.AddKurs(sef);
+		}
+		if (mostar.ProvjeriKoliziju(msql))
+		{
+			mostar.AddKurs(msql);
+			cout << "dobar 2" << endl;
+		}
+		if (mostar.ProvjeriKoliziju(msql2))
+		{
+			mostar.AddKurs(msql2);
+			cout << "dobar 3" << endl;
+		}
+		//ONEMOGUCITI DODAVANJE IDENTICNIH KURSEVA. FUNKCIJA TREBA DA BACI IZUZETAK UKOLIKO SE POKUSA DODATI IDENTICAN KURS
+		mostar.AddAplikaciju(sef, denis);
+		//ONEMOGUCITI APLICIRANJE ZA KURSEVE KOJI NISU REGISTROVANI U CENTRU
+		mostar.AddAplikaciju(msql, denis);
+		mostar.AddAplikaciju(msql, denis);
+		//ONEMOGUCITI APLICIRANJE ZA ISTI KURS. FUNKCIJA BAZA IZUZETAK
+		cout << denis2 << endl;
+		denis2 = denis;
+		if (denis == denis2)
+			//POLAZNICI SU ISTI AKO POSJEDUJU ISTO IME I AKO SU POHADJALI ISTE KURSEVE
+			cout << "ISTI SU" << endl;
+
+		mostar.DodajUspjesnoOkoncanKurs(1, sef, 60);
+		//BROJ 1 OZNACAVA ID POLAZNIKA. FUNKCIJA JE ZADUZENA DA POLAZNIKU DODA INFORMACIJU O USPJESNO POLOZENOM KURSU
+		//KOJI JE POSLAN KAO PARAMETAR. PREDUSLOV ZA DODAVANJE JE DA JE POLAZNIK PRETHODNO APLICIRAO ZA TAJ KURS, 
+		//TE DA JE NA ISPITU OSTVARIO VISE OD 55%
+		mostar.DodajUspjesnoOkoncanKurs(1, msql, 83);
+		vector<Polaznik> listaPolaznika = mostar.GetPolazniciByPredavac("Jasmin Azemovic", SoftwareEngeneeringFundamentals);
+		//VRACA INFORMACIJE O POLAZNICIMA KOJI SU KOD ODREDJENOG PREDAVACA USPJESNO OKONCALI ODREDJENI KURS
+
+		if (mostar.RemoveKurs(sef))//ONEMOGUCITI UKLANJANJE KURSA KOJI SU VEC PRIJAVILI NEKI OD POLAZNIKA
+			cout << "Kurs " << sef << " uspjesno uklonjen iz centra " << mostar << endl;
+
+		SkillsCentar sarajevo = mostar;
+		cout << sarajevo << endl;
+	}
+	catch (Izuzetak & err) {
+		cout << err << endl;
+	}
+#pragma endregion
+	system("pause");
+}
